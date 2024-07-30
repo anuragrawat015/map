@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Display a map on a webpage</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css"
+          integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            z-index: -4;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        
+    </style>
+</head>
+
+<body>
+    <div id="navbar" >
+
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <a class="navbar-brand" href="">GPS Tracker</a>
+        
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                
+                    
+            <form method='get'   class="form-inline my-2 my-lg-0">
+                <input  class="form-control mr-sm-2" type="search" placeholder="Search by asset id" aria-label="Search" name="search" id="search" >
+                <button class="btn btn-outline-success my-2  mr-2" type="submit" onclick="fun()">Search</button>
+            </form>
+            <form method='get'   class="form-inline my-2 my-lg-0">
+                <input  class="form-control mr-sm-2" type="search" placeholder="Search by asset type" aria-label="Search" name="search1" id="search1" >
+                <button class="btn btn-outline-success my-2  mr-2" type="submit" onclick="fun1()">Search</button>
+            </form>
+            </div>
+            
+        </nav>
+
+
+
+
+
+
+
+    </div>
+    <div id="map"></div>
+    <script type="text/javascript">
+
+
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYW51cmFncmF3YXQiLCJhIjoiY2wyaDZhZjVjMGF3OTNqcWg3ZHN1eDk5byJ9.7Er-E_Zo2lB_6BeAOs_2EA';
+           
+        // Set marker options.
+        // var hello=new mapboxgl.Marker({
+        //     color: "blue",
+        //     draggable: false
+        // }).setLngLat([-77.038659, 38.931567])
+        //     .addTo(map);
+        // hello.remove();
+
+        
+        fetch('http://127.0.0.1:8000/assets/'
+        ).then(function (response) {
+            return response.json();
+        })
+            .then(function (data) {
+                appendData(data);
+            })
+            .catch(function (err) {
+                console.log('error: ' + err);
+            });
+
+        var current_list_of_markers=[]
+        var current_list_of_layers=[]
+        var current_list_of_sources=[]
+        
+        function appendData(data) {
+            var map = new mapboxgl.Map({
+            container: 'map', // container ID
+            style: 'mapbox://styles/mapbox/streets-v11', // style URL
+            center: [-77.04, 38.907], // starting position [lng, lat]
+            zoom: 9 // starting zoom
+            }); 
+            
+            var mydata = data;
+            var mydata1=mydata.data.features;
+            for( var i=0;i<mydata1.length;i++)
+            {
+                var cord=mydata1[i].geometry.coordinates;
+                var hello=new mapboxgl.Marker({
+                color: "blue",
+                draggable: false
+                 }).setLngLat(cord)
+                .addTo(map);
+                current_list_of_markers.push(hello);
+            }
+            
+             map.on('load', () => {
+                var hello1=map.addSource('places', mydata);
+                
+                // Add a layer showing the places.
+                var hello2=map.addLayer({
+                    'id': 'places',
+                    'type': 'circle',
+                    'source': 'places',
+                    'paint': {
+                        'circle-color': 'violet',
+                        'circle-radius': 6,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
+                
+
+                // Create a popup, but don't add it to the map yet.
+                const popup = new mapboxgl.Popup({
+                    closeButton: true,
+                    closeOnClick: true
+                });
+
+                map.on('mouseenter', 'places', (e) => {
+                    
+                    // Change the cursor style as a UI indicator.
+                    map.getCanvas().style.cursor = 'pointer';
+
+                    // Copy coordinates array.
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+
+                    var description = e.features[0].properties.description;
+                    var cut=parseInt(description[0])
+                    var id=description.slice(1,cut+1);
+                    description=description.slice(cut+1);
+                    
+                    description+=`<button id=${id} onclick='myFunction(this)'>Hello</button>`;
+
+                    // Ensure that if the map is zoomed out such that multiple
+                    // copies of the feature are visible, the popup appears
+                    // over the copy being pointed to.
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+
+                    // Populate the popup and set its coordinates
+                    // based on the feature found.
+                    popup.setLngLat(coordinates).setHTML(description).addTo(map);
+                });
+
+                // map.on('mouseleave', 'places', () => {
+                //     map.getCanvas().style.cursor = '';
+                //     popup.remove();
+                // });
+                current_list_of_sources.push(hello1);
+                current_list_of_layers.push(hello2);
+                });
+                
+          
+            
+           
+        }
+        
+
+        async function getRoute(listt,data3) {
+
+            const map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v11',
+                center: [-77.04, 38.907], // starting position
+                zoom: 9
+                });
+
+                var mydata = data3;
+            var mydata1=mydata.data.features;
+            for( var i=0;i<mydata1.length;i++)
+            {
+                var cord=mydata1[i].geometry.coordinates;
+                var hello=new mapboxgl.Marker({
+                color: "blue",
+                draggable: false
+                 }).setLngLat(cord)
+                .addTo(map);
+                current_list_of_markers.push(hello);
+            }
+            
+             map.on('load', () => {
+                var hello1=map.addSource('places', mydata);
+                
+                // Add a layer showing the places.
+                var hello2=map.addLayer({
+                    'id': 'places',
+                    'type': 'circle',
+                    'source': 'places',
+                    'paint': {
+                        'circle-color': 'violet',
+                        'circle-radius': 6,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
+                
+
+                // Create a popup, but don't add it to the map yet.
+                const popup = new mapboxgl.Popup({
+                    closeButton: true,
+                    closeOnClick: true
+                });
+
+                map.on('mouseenter', 'places', (e) => {
+                    
+                    // Change the cursor style as a UI indicator.
+                    map.getCanvas().style.cursor = 'pointer';
+
+                    // Copy coordinates array.
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+
+                    var description = e.features[0].properties.description;
+                    var cut=parseInt(description[0])
+                    var id=description.slice(1,cut+1);
+                    description=description.slice(cut+1);
+                    
+                    description+=`<button id=${id} onclick='myFunction(this)'>Hello</button>`;
+
+                    // Ensure that if the map is zoomed out such that multiple
+                    // copies of the feature are visible, the popup appears
+                    // over the copy being pointed to.
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+
+                    // Populate the popup and set its coordinates
+                    // based on the feature found.
+                    popup.setLngLat(coordinates).setHTML(description).addTo(map);
+                });
+
+                // map.on('mouseleave', 'places', () => {
+                //     map.getCanvas().style.cursor = '';
+                //     popup.remove();
+                // });
+                current_list_of_sources.push(hello1);
+                current_list_of_layers.push(hello2);
+                });
+
+            
+            if(listt.length!=1){
+
+            var link=``;
+            for(var i=0;i<listt.length-1;i++)
+            {
+            if(i<listt.length-2)
+            link+=`${listt[i][0]},${listt[i][1]};${listt[i+1][0]},${listt[i+1][1]};`;
+            else
+            link+=`${listt[i][0]},${listt[i][1]};${listt[i+1][0]},${listt[i+1][1]}`
+
+            }
+
+            // console.log(link)
+
+
+            //var ans=`${start[0]},${start[1]};${end[0]},${end[1]};${start1[0]},${start1[1]};${end1[0]},${end1[1]}`;
+            //console.log(ans)
+
+            const query = await fetch(
+            `https://api.mapbox.com/directions/v5/mapbox/cycling/${link}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
+            { method: 'GET' }
+            );
+            const json = await query.json();
+            const data = json.routes[0];
+            const route = data.geometry.coordinates;
+            const geojson = {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+                type: 'LineString',
+                coordinates: route
+            }
+            };
+            // if the route already exists on the map, we'll reset it using setData
+            if (map.getSource('route')) {
+            map.getSource('route').setData(geojson);
+            }
+            // otherwise, we'll make a new request
+            else {
+            map.addLayer({
+                id: 'route',
+                type: 'line',
+                source: {
+                type: 'geojson',
+                data: geojson
+                },
+                layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+                },
+                paint: {
+                'line-color': '#DC08B8',
+                'line-width': 5,
+                'line-opacity': 0.75
+                }
+            });
+            }
+        }
+            // add turn instructions here at the end
+        }
+
+
+
+
+
+        function myFunction(obj)
+        {
+            obj.style.border = "solid #b300b3";
+            // console.log(obj.id);
+            fetch(`http://127.0.0.1:8000/assets/${obj.id}/`
+            ).then(function (response) {
+                // console.log(response)
+                    return response.json();
+                })
+                .then(function (data) {
+                    //appendData(data);
+                    // console.log(map)
+                    // console.log(data);
+                    var n=data.data.features.length;
+                    // console.log(n);
+                    var listt=[]
+                    for(var i=0;i<n;i++)
+                    {
+                        listt.push(data.data.features[i].geometry.coordinates)
+                    }
+                    // console.log(listt)
+                    getRoute(listt,data);
+
+                })
+                .catch(function (err) {
+                    console.log('error: ' + err);
+                });
+                
+                
+
+
+
+
+
+        }
+        
+        function fun(){
+            event.preventDefault();
+        
+        var val = document.getElementById('search').value;
+        // console.log(val)
+        fetch(`http://127.0.0.1:8000/assets/id=${val}/`
+       ).then(function (response) {
+        //    console.log(response)
+            return response.json();
+        })
+            .then(function (data) {
+                appendData(data);
+            })
+            .catch(function (err) {
+                console.log('error: ' + err);
+            });
+
+            document.getElementById('search').value="";
+        } 
+        function fun1(){
+            event.preventDefault();
+        
+        var val = document.getElementById('search1').value;
+        // console.log(val)
+        fetch(`http://127.0.0.1:8000/assets/type=${val}/`
+       ).then(function (response) {
+        //    console.log(response)
+            return response.json();
+        })
+            .then(function (data) {
+                appendData(data);
+            })
+            .catch(function (err) {
+                console.log('error: ' + err);
+            });
+            document.getElementById('search1').value="";
+        }
+
+    </script>
+
+</body>
+
+</html>
